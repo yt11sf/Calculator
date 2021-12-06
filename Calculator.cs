@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
-using System.Threading.Tasks;
 
 namespace Calculator
 {
@@ -44,6 +43,7 @@ namespace Calculator
             s.AppendLine("Enter 'exit' or press 'Ctrl' + 'c' to exit the calculator.");
             s.AppendLine("Nested equations using brackets '(' and ')' are allowed.");
             s.AppendLine("Every open bracket must be closed.");
+            s.AppendLine("'*' must be included before trigonometry (ie: 2*sin90)");
 
             s.AppendLine("Available Functions:");
             for (int i = 0; i < functionList.Length; i += 2)
@@ -61,10 +61,10 @@ namespace Calculator
 
 class InfixToPostfixCalculator
 {
-    private string s;
-    private string[] sArr;
-    private Queue<string> output;
-    private Stack<OperClass> stack;
+    private readonly string s;
+    private readonly string[] sArr;
+    private readonly Queue<string> output;
+    private readonly Stack<OperClass> stack;
     private class OperClass
     {
         public string oper { get; set; }
@@ -77,13 +77,13 @@ class InfixToPostfixCalculator
         //this.s = removeWhiteSpace(s);
         this.stack = new Stack<OperClass>();
         this.output = new Queue<string>();
-        this.s = s.ToLower();
-        this.sArr = Separator(s);
-        foreach (string item in this.sArr)
+        this.s = RemoveWhiteSpace(s.ToLower());
+        this.sArr = Separator(this.s);
+        /*foreach (string item in this.sArr)
         {
             Console.Write($"{item} , ");
         }
-        Console.WriteLine();
+        Console.WriteLine();*/
         foreach (string item in this.sArr) if (!Validate(item)) throw new InvalidOperationException("Input is invalid");
     }
 
@@ -103,7 +103,7 @@ class InfixToPostfixCalculator
         return new string(input.ToCharArray().Where(c => !Char.IsWhiteSpace(c)).ToArray());
     }
 
-    private static bool Validate(string input)
+    public static bool Validate(string input)
     {
         //! does not check for closing brackets (Handled), value for trigonometry function etc
         //Console.WriteLine(input + ":" + Regex.IsMatch(input, @"(sin)*(cos)*(tan)*[eE\d\(\)\.+\-\*\^\/]"));
@@ -115,7 +115,17 @@ class InfixToPostfixCalculator
     {
         //! Regex added empty string before open paranthesis, and after close paranthesis
         // Regex pattern reference: https://stackoverflow.com/a/4680185
-        return Regex.Split(input, @"((?<!Ee)\+|\-|\*|\(|\)|\^|\/|(sinh?)|(cosh?)|(tanh?))").Where(s => s != "" && s != " ").ToArray();
+        List<string> separated = Regex.Split(input, @"((?<![Ee])\+|\-|\*|\(|\)|\^|\/|\%|mod|sinh?|cosh?|tanh?)").Where(s => s != "" && s != " ").ToList();
+        for (int i = 1; i < separated.Count; i++)
+        {
+            if (Regex.IsMatch(separated[i], @"\(|sinh?|cosh?|tanh?") && Regex.IsMatch(separated[i - 1], @"\)|^\d+$"))
+            {
+                separated.Insert(i, "*");
+            }
+        }
+        //Console.WriteLine();
+
+        return separated.ToArray();
     }
 
     private void Transition()
@@ -125,9 +135,9 @@ class InfixToPostfixCalculator
             // '+' or '-'
             if (Regex.IsMatch(this.sArr[i], @"\+|\-")) Oper(this.sArr[i], 1);
             // '*' or '/'
-            else if (Regex.IsMatch(this.sArr[i], @"\*|\/|\%|mod")) Oper(this.sArr[i], 2);
+            else if (Regex.IsMatch(this.sArr[i], @"\*|\/|\%|mod|\^")) Oper(this.sArr[i], 2);
             // trigonometry
-            else if (Regex.IsMatch(this.sArr[i], @"(sinh?)|(cosh?)|(tanh?)")) Oper(this.sArr[i], 9);
+            else if (Regex.IsMatch(this.sArr[i], @"sinh?|cosh?|tanh?")) Oper(this.sArr[i], 9);
             // Open bracket found
             else if (this.sArr[i] == "(")
             {
@@ -179,7 +189,12 @@ class InfixToPostfixCalculator
     {
         this.Transition();
         Stack<string> evalStack = new Stack<string>();
-        double result = 0, num1 = 0, num2 = 0;
+        double result, num1, num2;
+        foreach (var item in this.output)
+        {
+            Console.Write(item + " , ");
+        }
+        Console.WriteLine();
         foreach (string item in this.output)
         {
             if (Regex.IsMatch(item, @"\+|\-|\*|\/"))
@@ -199,6 +214,9 @@ class InfixToPostfixCalculator
                         break;
                     case "/":
                         result = num1 / num2;
+                        break;
+                    case "^":
+                        result = Math.Pow(num1, num2);
                         break;
                     case "%":
                     case "mod":
@@ -238,6 +256,7 @@ class InfixToPostfixCalculator
             }
             else evalStack.Push(item);
         }
+        Console.WriteLine($"evaluation: {evalStack.Peek()}");
         return Convert.ToDouble(evalStack.Pop());
     }
 }
