@@ -56,10 +56,11 @@ namespace Calculator
                 "Sine", "sin", "Cosine", "cos", "Tangent", "tan",
                 "Inverse sine", "sinh", "Inverse cosine", "cosh", "Inverse tangent", "tanh" };
             StringBuilder s = new StringBuilder("*** Help ***\n");
-            s.AppendLine("Enter 'help' to see this menu.");
+            s.AppendLine("Enter '-h' to see this menu.");
             s.AppendLine("Enter 'exit' or press 'Ctrl' + 'c' to exit the calculator.");
-            s.AppendLine("Nested equations using brackets '(' and ')' are allowed.");
-            s.AppendLine("Every open bracket must be closed.");
+            s.AppendLine("Nested equations using brackets '(' and ')' are allowed but open bracket must be closed.");
+            s.AppendLine("Trigonometry function use radian by default. Append \"deg\" for degree or \"rad\" for radian behind the numbers to specify. ");
+
 
             s.AppendLine("Available Functions:");
             for (int i = 0; i < functionList.Length; i += 2)
@@ -141,7 +142,7 @@ class InfixToPostfixCalculator
             // '*' or '/'
             else if (Regex.IsMatch(this.sArr[i], @"\*|\/|\%|mod|\^")) Oper(this.sArr[i], 2);
             // trigonometry
-            else if (Regex.IsMatch(this.sArr[i], @"sinh?|cosh?|tanh?")) Oper(this.sArr[i], 9);
+            else if (Regex.IsMatch(this.sArr[i], @"sinh?|cosh?|tanh?")) Oper(this.sArr[i], 3);
             // Open bracket found
             else if (this.sArr[i] == "(")
             {
@@ -192,26 +193,26 @@ class InfixToPostfixCalculator
     public double Evaluation()
     {
         this.Transition();
-        /*foreach (var item in this.output)
+        /*foreach (var oper in this.output)
         {
-            Console.Write($"{item} ,");
+            Console.Write($"{oper} ,");
         }
         Console.WriteLine();*/
         Stack<string> evalStack = new Stack<string>();
         double result, num1, num2;
-        foreach (string item in this.output)
+        foreach (string oper in this.output)
         {
-            /*Console.WriteLine($"Working on : {item}\nevalStack: ");
+            /*Console.WriteLine($"Working on : {oper}\nevalStack: ");
             foreach (var ev in evalStack)
             {
                 Console.Write($"{ev} ,");
             }
             Console.WriteLine();*/
-            if (Regex.IsMatch(item, @"\+|\-|\*|\/|\^"))
+            if (Regex.IsMatch(oper, @"\+|\-|\*|\/|\^"))
             {
                 num2 = Convert.ToDouble(evalStack.Pop());
                 num1 = Convert.ToDouble(evalStack.Pop());
-                switch (item)
+                switch (oper)
                 {
                     case "+":
                         result = num1 + num2;
@@ -237,10 +238,23 @@ class InfixToPostfixCalculator
                 }
                 evalStack.Push(Convert.ToString(result));
             }
-            else if (Regex.IsMatch(item, @"(sinh?)|(cosh?)|(tanh?)"))
+            else if (Regex.IsMatch(oper, @"(sinh?)|(cosh?)|(tanh?)"))
             {
-                num1 = Convert.ToDouble(evalStack.Pop());
-                switch (item)
+                string temp = evalStack.Pop();
+                string end = temp.Substring(temp.Length - 3);
+                if (end == "deg")
+                {
+                    num1 = Convert.ToDouble(temp.Substring(0, temp.Length - 3)) * Math.PI / 180.0;
+                }
+                else if (end == "rad")
+                {
+                    num1 = Convert.ToDouble(temp.Substring(0, temp.Length - 3));
+                }
+                else
+                {
+                    num1 = Convert.ToDouble(temp);
+                }
+                switch (oper)
                 {
                     case "sin":
                         result = Math.Sin(num1);
@@ -265,7 +279,7 @@ class InfixToPostfixCalculator
                 }
                 evalStack.Push(Convert.ToString(result));
             }
-            else evalStack.Push(item);
+            else evalStack.Push(oper);
         }
         //Console.WriteLine($"evaluation: {evalStack.Peek()}");
         return Convert.ToDouble(evalStack.Pop());
