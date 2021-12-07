@@ -7,9 +7,9 @@ It currently support:
 - Power
 - Nested Brackets
 - Trigonometry functions
+- Logarithmn
 
 TODO:
-- Logarithmn
 - Differentiation and Integration
 
 Potential bugs:
