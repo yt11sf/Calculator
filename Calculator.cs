@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -127,9 +126,9 @@ class InfixToPostfixCalculator
         //! Regex added empty string before open paranthesis, and after close paranthesis
         // Regex pattern reference: https://stackoverflow.com/a/4680185
         List<string> separated = Regex.Split(input, @"((?<![Ee])\+|\-|\*|\(|\)|\^|\/|\%|mod|sinh?|cosh?|tanh?)").Where(s => s != "" && s != " ").ToList();
+        if (Regex.IsMatch(separated[0], @"\+|\-")) separated.Insert(0, "0");
         for (int i = 1; i < separated.Count; i++)
             if (Regex.IsMatch(separated[i], @"\(|sinh?|cosh?|tanh?") && Regex.IsMatch(separated[i - 1], @"\)|^\d+$")) separated.Insert(i, "*");
-
         return separated.ToArray();
     }
 
