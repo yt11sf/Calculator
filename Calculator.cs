@@ -65,6 +65,8 @@ namespace Calculator
             s.AppendLine("Nested equations using brackets '(' and ')' are allowed but brackets must be closed.");
             s.AppendLine("Trigonometry function use radian by default.");
             s.AppendLine("-  Append \"deg\" for degree or \"rad\" for radian behind the numbers to specify.");
+            s.AppendLine("-  To ensure that degree is correct, enclose the operand of trigonometry with brackets before entering \"deg\"");
+            s.AppendLine("---  Ex: sin(90^2)deg");
             s.AppendLine("Lograithm is base 10 by default.");
             s.AppendLine("-  Logarithm must be entered in the form of \"log_b(x)\", where \"b\" stand for base, \"x\" stand for value.");
 
@@ -84,7 +86,7 @@ namespace Calculator
     {
         private string s;
         private string[] sArr;
-        private Queue<string> output;
+        private List<string> output;
         private Stack<OperClass> operStack;
         private class OperClass
         {
@@ -96,11 +98,22 @@ namespace Calculator
         {
             // (1+2^3) *4e5/6 sin7
             this.operStack = new Stack<OperClass>();
-            this.output = new Queue<string>();
+            this.output = new List<string>();
             this.s = RemoveWhiteSpace(s.ToLower());
             this.sArr = Separator(this.s);
             /*foreach (string item in this.sArr) { Console.Write($"{item} , "); } Console.WriteLine();*/
             //foreach (string item in this.sArr) if (!Validate(item)) throw new InvalidOperationException("Input is invalid");
+        }
+
+        /*
+         * Prevent floating point problem
+         * @param double num: a number
+         * @param in precision: round given number to specified decimal point
+         * return double
+         */
+        private double RoundDouble(double num, int precision = 14)
+        {
+            return Math.Round(num, precision);
         }
 
         /*  
@@ -127,7 +140,7 @@ namespace Calculator
         {
             //! Regex added empty string before open paranthesis, and after close paranthesis
             // Regex pattern reference: https://stackoverflow.com/a/4680185
-            List<string> separated = Regex.Split(input, @"((?<![Ee])\+|\-|\*|\(|\)|\^|\/|\%|mod|sinh?|cosh?|tanh?|log(?:_\d+)?)").Where(s => s != "").ToList();
+            List<string> separated = Regex.Split(input, @"((?<![Ee])\+|\-|\*|\(|\)|\^|\/|\%|mod|sinh?|cosh?|tanh?|log(?:_\d+)?|deg|rad)").Where(s => s != "").ToList();
             if (Regex.IsMatch(separated[0], @"\+|\-")) separated.Insert(0, "0");
             for (int i = 1; i < separated.Count; i++)
                 if (Regex.IsMatch(separated[i], @"\(|sinh?|cosh?|tanh?|log(_\d+)?") && Regex.IsMatch(separated[i - 1], @"\)|^\d+$")) separated.Insert(i, "*");
@@ -145,9 +158,13 @@ namespace Calculator
                 // '+' or '-'
                 if (Regex.IsMatch(this.sArr[i], @"^(\+|\-)$")) Oper(this.sArr[i], 1);
                 // '*' or '/'
-                else if (Regex.IsMatch(this.sArr[i], @"^(\*|\/|\%|mod|\^)$")) Oper(this.sArr[i], 2);
+                else if (Regex.IsMatch(this.sArr[i], @"^(\*|\/|\%|mod)$")) Oper(this.sArr[i], 2);
                 // trigonometry or logarithm
                 else if (Regex.IsMatch(this.sArr[i], @"^(sinh?|cosh?|tanh?|log(_\d+)?)$")) Oper(this.sArr[i], 3);
+                // power
+                else if (Regex.IsMatch(this.sArr[i], @"^\^$")) Oper(this.sArr[i], 4);
+                // User specified deg/rad
+                else if (this.sArr[i] == "deg" || this.sArr[i] == "rad") Oper(this.sArr[i], 9);
                 // Open bracket found
                 else if (this.sArr[i] == "(")
                 {
@@ -162,7 +179,7 @@ namespace Calculator
                             if (openBracket == 0)
                             {
                                 InfixToPostfixCalculator innerValue = new InfixToPostfixCalculator(string.Join("", this.sArr, i + 1, j - i - 1));
-                                this.output.Enqueue(Convert.ToString(innerValue.Evaluation()));
+                                this.output.Add(Convert.ToString(innerValue.Evaluation()));
                                 i = j; // adjust outer index to after close bracket
                                 break;
                             }
@@ -172,11 +189,11 @@ namespace Calculator
                     }
                     if (openBracket != 0) throw new InvalidOperationException("Bracket is not closed");
                 }
-                // Enqueue number onto output
-                else this.output.Enqueue(this.sArr[i]);
+                // Add number onto output
+                else this.output.Add(this.sArr[i]);
             }
-            // Enqueue all remaining operator to output
-            while (this.operStack.Count() != 0) this.output.Enqueue(this.operStack.Pop().oper);
+            // Add all remaining operator to output
+            while (this.operStack.Count() != 0) this.output.Add(this.operStack.Pop().oper);
         }
 
         /*
@@ -195,7 +212,7 @@ namespace Calculator
                     this.operStack.Push(top);
                     break;
                 }
-                else this.output.Enqueue(top.oper);
+                else this.output.Add(top.oper);
             }
             this.operStack.Push(new OperClass() { oper = input, precedence = precedence });
         }
@@ -207,27 +224,21 @@ namespace Calculator
         public double Evaluation()
         {
             this.Transition();
-            /*foreach (var oper in this.output)
-            {
-                Console.Write($"{oper} ,");
-            }
+            /*foreach (var oper in this.output) { Console.Write($"{oper} ,"); }
             Console.WriteLine();*/
-            Stack<string> evalStack = new Stack<string>();
+            Stack<double> evalStack = new Stack<double>();
             double result, num1, num2;
-            foreach (string oper in this.output)
+            for (int i = 0; i < this.output.Count; i++)
             {
-                /*Console.WriteLine($"Working on : {oper}\nevalStack: ");
-                foreach (var ev in evalStack)
-                {
-                    Console.Write($"{ev} ,");
-                }
+                /*Console.Write($"Working on : {this.output[i]}\nevalStack: ");
+                foreach (var ev in evalStack) { Console.Write($"{ev} ,"); }
                 Console.WriteLine();*/
                 // Addition, Subtraction or Multiplication
-                if (Regex.IsMatch(oper, @"^(\+|\-|\*|\/|\^)$"))
+                if (Regex.IsMatch(this.output[i], @"^(\+|\-|\*|\/|\^)$"))
                 {
-                    num2 = Convert.ToDouble(evalStack.Pop());
-                    num1 = Convert.ToDouble(evalStack.Pop());
-                    switch (oper)
+                    num2 = evalStack.Pop();
+                    num1 = evalStack.Pop();
+                    switch (this.output[i])
                     {
                         case "+":
                             result = num1 + num2;
@@ -251,29 +262,13 @@ namespace Calculator
                         default:
                             throw new NotSupportedException("Operation is not implemented");
                     }
-                    evalStack.Push(Convert.ToString(result));
+                    evalStack.Push(RoundDouble(result));
                 }
                 // Trigonometry
-                else if (Regex.IsMatch(oper, @"^(sinh?|cosh?|tanh?)$"))
+                else if (Regex.IsMatch(this.output[i], @"^(sinh?|cosh?|tanh?)$"))
                 {
-                    string temp = evalStack.Pop();
-                    string end = "";
-                    // if user specified degree/radian
-                    Match mc = Regex.Match(temp, @"deg|rad");
-                    if (mc.Value != "") end = mc.Value;
-                    switch (end)
-                    {
-                        case "deg":
-                            num1 = Convert.ToDouble(temp.Substring(0, temp.Length - 3)) * Math.PI / 180.0;
-                            break;
-                        case "rad":
-                            num1 = Convert.ToDouble(temp.Substring(0, temp.Length - 3));
-                            break;
-                        default: // radian
-                            num1 = Convert.ToDouble(temp);
-                            break;
-                    }
-                    switch (oper)
+                    num1 = evalStack.Pop();
+                    switch (this.output[i])
                     {
                         case "sin":
                             result = Math.Sin(num1);
@@ -296,20 +291,31 @@ namespace Calculator
                         default:
                             throw new NotSupportedException("Operation is not implemented");
                     }
-                    evalStack.Push(Convert.ToString(result));
+                    evalStack.Push(RoundDouble(result));
                 }
                 // Logarithm
-                else if (Regex.IsMatch(oper, @"^log(_\d+)?$"))
+                else if (Regex.IsMatch(this.output[i], @"^log(_\d+)?$"))
                 {
                     double b = 10; // base = 10 by default
                     // if user specified base
-                    Match mc = Regex.Match(oper, @"\d+");
+                    Match mc = Regex.Match(this.output[i], @"\d+");
                     if (mc.Value != "") b = Convert.ToDouble(mc.Value);
-                    // evaluate
+
                     result = Math.Log(Convert.ToDouble(evalStack.Pop()), b);
-                    evalStack.Push(Convert.ToString(result));
+                    evalStack.Push(RoundDouble(result));
                 }
-                else evalStack.Push(oper);
+                // Convert degree or radiant
+                else if (Regex.IsMatch(this.output[i], @"^(deg|rad)$"))
+                {
+                    num1 = Convert.ToDouble(evalStack.Pop());
+                    // Round to prevent precision lost
+                    if (this.output[i] == "deg") result = RoundDouble(num1 * Math.PI) / 180.0;
+                    else if (this.output[i] == "rad") result = num1;
+                    else throw new Exception("Somehow trying to convert deg/rad even though not specified");
+                    evalStack.Push(RoundDouble(result));
+                }
+                // Push number onto evaluation stack
+                else evalStack.Push(Convert.ToDouble(this.output[i]));
             }
             //Console.WriteLine($"evaluation: {evalStack.Peek()}");
             return Convert.ToDouble(evalStack.Pop());
