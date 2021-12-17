@@ -11,6 +11,7 @@ It currently support:
 
 TODO:
 - Differentiation and Integration
+- Variables
 
 Potential bugs:
 - Precedence of trigonometry function needs to be adjusted

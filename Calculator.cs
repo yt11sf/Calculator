@@ -29,7 +29,7 @@ namespace Calculator
                 try
                 {
                     InfixToPostfixCalculator i2p = new InfixToPostfixCalculator(input);
-                    Console.WriteLine($"Answer = {i2p.Evaluation()}");
+                    Console.WriteLine($"Answer = {i2p.Evaluate()}");
                 }
                 catch (InvalidOperationException ex)
                 {
@@ -96,13 +96,10 @@ namespace Calculator
 
         public InfixToPostfixCalculator(string s)
         {
-            // (1+2^3) *4e5/6 sin7
             this.operStack = new Stack<OperClass>();
             this.output = new List<string>();
             this.s = RemoveWhiteSpace(s.ToLower());
             this.sArr = Separator(this.s);
-            /*foreach (string item in this.sArr) { Console.Write($"{item} , "); } Console.WriteLine();*/
-            //foreach (string item in this.sArr) if (!Validate(item)) throw new InvalidOperationException("Input is invalid");
         }
 
         /*
@@ -138,12 +135,13 @@ namespace Calculator
          */
         private static string[] Separator(string input)
         {
-            //! Regex added empty string before open paranthesis, and after close paranthesis
-            // Regex pattern reference: https://stackoverflow.com/a/4680185
-            List<string> separated = Regex.Split(input, @"((?<![Ee])\+|\-|\*|\(|\)|\^|\/|\%|mod|sinh?|cosh?|tanh?|log(?:_\d+)?|deg|rad)").Where(s => s != "").ToList();
+            // Regex.Split added empty string before open paranthesis and after close paranthesis (something capturing group)
+            List<string> separated = Regex.Split(input, @"((?<![Ee])[+-]|[*()^/%]|mod|sinh?|cosh?|tanh?|log(?:_\d+)?|deg|rad)").Where(s => s != "").ToList();
             if (Regex.IsMatch(separated[0], @"\+|\-")) separated.Insert(0, "0");
+            // add '*' operator when needed
             for (int i = 1; i < separated.Count; i++)
-                if (Regex.IsMatch(separated[i], @"\(|sinh?|cosh?|tanh?|log(_\d+)?") && Regex.IsMatch(separated[i - 1], @"\)|^\d+$")) separated.Insert(i, "*");
+                //if (Regex.IsMatch(separated[i], @"\=")) ; // when variable is added into equation
+                if (Regex.IsMatch(separated[i], @"\(|sinh?|cosh?|tanh?|log(_\d+)?|^\w$") && Regex.IsMatch(separated[i - 1], @"\)|^\d+$|^\w$")) separated.Insert(i, "*");
             return separated.ToArray();
         }
 
@@ -151,20 +149,20 @@ namespace Calculator
          * Transform infix equation to postfix equation
          * return void
          */
-        private void Transition()
+        private void Transform()
         {
             for (int i = 0; i < this.sArr.Length; i++)
             {
                 // '+' or '-'
-                if (Regex.IsMatch(this.sArr[i], @"^(\+|\-)$")) Oper(this.sArr[i], 1);
+                if (Regex.IsMatch(this.sArr[i], @"^[+-]$")) Oper(this.sArr[i], 1);
                 // '*' or '/'
-                else if (Regex.IsMatch(this.sArr[i], @"^(\*|\/|\%|mod)$")) Oper(this.sArr[i], 2);
+                else if (Regex.IsMatch(this.sArr[i], @"^([*/%]|mod)$")) Oper(this.sArr[i], 2);
                 // trigonometry or logarithm
                 else if (Regex.IsMatch(this.sArr[i], @"^(sinh?|cosh?|tanh?|log(_\d+)?)$")) Oper(this.sArr[i], 3);
                 // power
                 else if (Regex.IsMatch(this.sArr[i], @"^\^$")) Oper(this.sArr[i], 4);
                 // User specified deg/rad
-                else if (this.sArr[i] == "deg" || this.sArr[i] == "rad") Oper(this.sArr[i], 9);
+                else if (Regex.IsMatch(this.sArr[i], @"^(deg|rad)$")) Oper(this.sArr[i], 9);
                 // Open bracket found
                 else if (this.sArr[i] == "(")
                 {
@@ -179,7 +177,7 @@ namespace Calculator
                             if (openBracket == 0)
                             {
                                 InfixToPostfixCalculator innerValue = new InfixToPostfixCalculator(string.Join("", this.sArr, i + 1, j - i - 1));
-                                this.output.Add(Convert.ToString(innerValue.Evaluation()));
+                                this.output.Add(Convert.ToString(innerValue.Evaluate()));
                                 i = j; // adjust outer index to after close bracket
                                 break;
                             }
@@ -221,9 +219,9 @@ namespace Calculator
          * Evaluate the equation after transforming it to postfix
          * return double
          */
-        public double Evaluation()
+        public double Evaluate()
         {
-            this.Transition();
+            this.Transform();
             /*foreach (var oper in this.output) { Console.Write($"{oper} ,"); }
             Console.WriteLine();*/
             Stack<double> evalStack = new Stack<double>();
@@ -234,7 +232,7 @@ namespace Calculator
                 foreach (var ev in evalStack) { Console.Write($"{ev} ,"); }
                 Console.WriteLine();*/
                 // Addition, Subtraction or Multiplication
-                if (Regex.IsMatch(this.output[i], @"^(\+|\-|\*|\/|\^)$"))
+                if (Regex.IsMatch(this.output[i], @"^([*/%^+-]|mod)$"))
                 {
                     num2 = evalStack.Pop();
                     num1 = evalStack.Pop();
